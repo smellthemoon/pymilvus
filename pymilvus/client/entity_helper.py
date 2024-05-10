@@ -179,7 +179,8 @@ def convert_to_json(obj: object):
     if isinstance(obj, dict):
         for k, v in obj.items():
             if not isinstance(k, str):
-                raise DataNotMatchException(message=ExceptionsMessage.JSONKeyMustBeStr)
+                raise DataNotMatchException(
+                    message=ExceptionsMessage.JSONKeyMustBeStr)
             if isinstance(v, np.ndarray):
                 obj[k] = v.tolist()
     return ujson.dumps(obj, ensure_ascii=False).encode(Config.EncodeProtocol)
@@ -311,18 +312,29 @@ def pack_field_value_to_field_data(
     elif field_type == DataType.JSON:
         field_data.scalars.json_data.data.append(convert_to_json(field_value))
     elif field_type == DataType.ARRAY:
-        field_data.scalars.array_data.data.append(convert_to_array(field_value, field_info))
+        field_data.scalars.array_data.data.append(
+            convert_to_array(field_value, field_info))
     else:
         raise ParamError(message=f"UnSupported data type: {field_type}")
 
 
 # TODO: refactor here.
-def entity_to_field_data(entity: Any, field_info: Any):
+def entity_to_field_data(entity: Any, field_info: Any, num_rows: int):
     field_data = schema_types.FieldData()
-
     entity_type = entity.get("type")
     field_data.field_name = entity.get("name")
     field_data.type = entity_type_to_dtype(entity_type)
+    entity_value = entity.get("values")
+    valid_data = []
+
+    if len(entity_value) is 0:
+        valid_data = [False] * num_rows
+    elif field_info.get("nullable", False) or field_info.get("default_value", None):
+        valid_data = [
+            False if value is None else True for value in entity_value]
+        entity_value = [value for value in entity_value if value is not None]
+    field_data.valid_data.extend(valid_data)
+    entity["values"] = entity_value
 
     if entity_type == DataType.BOOL:
         field_data.scalars.bool_data.data.extend(entity.get("values"))
@@ -352,7 +364,8 @@ def entity_to_field_data(entity: Any, field_info: Any):
             entity_to_str_arr(entity, field_info, CHECK_STR_ARRAY)
         )
     elif entity_type == DataType.JSON:
-        field_data.scalars.json_data.data.extend(entity_to_json_arr(entity))
+        field_data.scalars.json_data.data.extend(
+            entity_to_json_arr(entity))
     elif entity_type == DataType.ARRAY:
         field_data.scalars.array_data.data.extend(entity_to_array_arr(entity, field_info))
     elif entity_type == DataType.SPARSE_FLOAT_VECTOR:
@@ -476,7 +489,8 @@ def extract_row_data_from_fields_data(
             entity_row_data.update({k: v for k, v in json_dict.items() if k in dynamic_fields})
             return
         if field_data.type == DataType.ARRAY and len(field_data.scalars.array_data.data) >= index:
-            entity_row_data[field_data.field_name] = extract_array_row_data(field_data, index)
+            entity_row_data[field_data.field_name] = extract_array_row_data(
+                field_data, index)
 
         if field_data.type == DataType.FLOAT_VECTOR:
             dim = field_data.vectors.dim
@@ -488,7 +502,8 @@ def extract_row_data_from_fields_data(
         elif field_data.type == DataType.BINARY_VECTOR:
             dim = field_data.vectors.dim
             if len(field_data.vectors.binary_vector) >= index * (dim // 8):
-                start_pos, end_pos = index * (dim // 8), (index + 1) * (dim // 8)
+                start_pos, end_pos = index * \
+                    (dim // 8), (index + 1) * (dim // 8)
                 entity_row_data[field_data.field_name] = [
                     field_data.vectors.binary_vector[start_pos:end_pos]
                 ]

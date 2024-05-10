@@ -26,6 +26,8 @@ class FieldSchema:
         self.params = {}
         self.is_partition_key = False
         self.is_dynamic = False
+        self.nullable = False
+        self.default_value = None
         # For array field
         self.element_type = None
         self.is_clustering_key = False
@@ -41,10 +43,17 @@ class FieldSchema:
         self.is_partition_key = raw.is_partition_key
         self.element_type = DataType(raw.element_type)
         self.is_clustering_key = raw.is_clustering_key
+        self.default_value = raw.default_value
+        if raw.default_value is not None and raw.default_value.WhichOneof("data") is None:
+            self.default_value = None
         try:
             self.is_dynamic = raw.is_dynamic
         except Exception:
             self.is_dynamic = False
+        try:
+            self.nullable = raw.nullable
+        except Exception:
+            self.nullable = False
 
         for type_param in raw.type_params:
             if type_param.key == "params":
@@ -77,6 +86,8 @@ class FieldSchema:
         self.indexes.extend([index_dict])
 
     def dict(self):
+        if self.default_value is not None and self.default_value.WhichOneof("data") is None:
+            self.default_value = None
         _dict = {
             "field_id": self.field_id,
             "name": self.name,
@@ -92,6 +103,8 @@ class FieldSchema:
             _dict["is_partition_key"] = True
         if self.is_dynamic:
             _dict["is_dynamic"] = True
+        if self.nullable:
+            _dict["nullable"] = True
         if self.auto_id:
             _dict["auto_id"] = True
         if self.is_primary:

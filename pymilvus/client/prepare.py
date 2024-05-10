@@ -124,6 +124,8 @@ class Prepare:
                 is_primary_key=f.is_primary,
                 autoID=f.auto_id,
                 is_partition_key=f.is_partition_key,
+                default_value=f.default_value,
+                nullable=f.nullable,
                 is_dynamic=f.is_dynamic,
                 element_type=f.element_type,
                 is_clustering_key=f.is_clustering_key,
@@ -161,6 +163,10 @@ class Prepare:
                 msg = "int64 and varChar are the only supported types of primary key"
                 raise ParamError(message=msg)
             primary_field = field_name
+            
+        nullable = field.get("nullable", False)
+        if not isinstance(nullable, bool):
+            raise ParamError(message="nullable must be boolean")
 
         auto_id = field.get("auto_id", False)
         if not isinstance(auto_id, bool):
@@ -176,6 +182,8 @@ class Prepare:
         field_schema = schema_types.FieldSchema(
             name=field_name,
             data_type=data_type,
+            default_value=field.get("default_value", None),
+            nullable=nullable,
             description=field.get("description", ""),
             is_primary_key=is_primary,
             autoID=auto_id,
@@ -465,9 +473,8 @@ class Prepare:
     ):
         for entity in entities:
             if (
-                entity.get("name") is None
-                or entity.get("values") is None
-                or entity.get("type") is None
+                not entity.get("name", None)
+                or not entity.get("type", None)
             ):
                 raise ParamError(
                     message="Missing param in entities, a field must have type, name and values"
@@ -501,25 +508,26 @@ class Prepare:
         try:
             for entity in entities:
                 latest_field_size = entity_helper.get_input_num_rows(entity.get("values"))
-                if pre_field_size not in (0, latest_field_size):
-                    raise ParamError(
-                        message=(
-                            f"Field data size misaligned for field [{entity.get('name')}] ",
-                            f"got size=[{latest_field_size}] ",
-                            f"alignment size=[{pre_field_size}]",
+                if latest_field_size != 0:
+                    if pre_field_size not in (0, latest_field_size):
+                        raise ParamError(
+                            message=(
+                                f"Field data size misaligned for field [{entity.get('name')}] ",
+                                f"got size=[{latest_field_size}] ",
+                                f"alignment size=[{pre_field_size}]",
+                            )
                         )
-                    )
-                pre_field_size = latest_field_size
+                    pre_field_size = latest_field_size
+            if pre_field_size == 0:
+                raise ParamError(message=ExceptionsMessage.NumberRowsInvalid)
+            request.num_rows = pre_field_size
+            for entity in entities:
                 field_data = entity_helper.entity_to_field_data(
-                    entity, fields_info[location[entity.get("name")]]
+                    entity, fields_info[location[entity.get("name")]],request.num_rows
                 )
                 request.fields_data.append(field_data)
         except (TypeError, ValueError) as e:
             raise DataNotMatchException(message=ExceptionsMessage.DataTypeInconsistent) from e
-
-        if pre_field_size == 0:
-            raise ParamError(message=ExceptionsMessage.NumberRowsInvalid)
-        request.num_rows = pre_field_size
         return request
 
     @classmethod

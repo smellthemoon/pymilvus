@@ -233,3 +233,4 @@ class ExceptionsMessage:
     ClusteringKeyOnlyOne = "Expected only one clustering key field, got [%s, %s, ...]."
     IsClusteringKeyType = "Param is_clustering_key must be bool type."
     ClusteringKeyFieldType = "Param clustering_key_field must be str type."
+    DefaultValueTypeNotSupport = "default_value only support scalars except array and json for now."
