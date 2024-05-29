@@ -23,7 +23,6 @@ from pymilvus.exceptions import (
     DataTypeNotSupportException,
     ExceptionsMessage,
     ParamError,
-    UpsertAutoIDTrueException,
 )
 
 from .schema import CollectionSchema
@@ -31,10 +30,11 @@ from .schema import CollectionSchema
 
 class Prepare:
     @classmethod
-    def prepare_insert_data(
+    def prepare_data(
         cls,
         data: Union[List, Tuple, pd.DataFrame],
         schema: CollectionSchema,
+        is_insert: bool = True,
     ) -> List:
         if not isinstance(data, (list, tuple, pd.DataFrame)):
             raise DataTypeNotSupportException(message=ExceptionsMessage.DataTypeNotSupport)
@@ -46,12 +46,13 @@ class Prepare:
             if (
                 schema.auto_id
                 and schema.primary_field.name in data
+                and is_insert
                 and not data[schema.primary_field.name].isnull().all()
             ):
                 raise DataNotMatchException(message=ExceptionsMessage.AutoIDWithData)
             # TODO(SPARSE): support pd.SparseDtype for sparse float vector field
             for field in fields:
-                if field.is_primary and field.auto_id:
+                if field.is_primary and field.auto_id and is_insert:
                     continue
                 values = []
                 if field.name in list(data.columns):
@@ -63,9 +64,8 @@ class Prepare:
         for i, field in enumerate(tmp_fields):
             #  TODO Goose: Checking auto_id and is_primary only, maybe different than
             #  schema.is_primary, schema.auto_id, need to check why and how schema is built.
-            if field.is_primary and field.auto_id:
+            if field.is_primary and field.auto_id and is_insert:
                 tmp_fields.pop(i)
-
         vec_dtype_checker = {
             DataType.FLOAT_VECTOR: lambda ndarr: ndarr.dtype in ("float32", "float64"),
             DataType.FLOAT16_VECTOR: lambda ndarr: ndarr.dtype in ("float16",),
@@ -153,13 +153,3 @@ class Prepare:
 
         return entities
 
-    @classmethod
-    def prepare_upsert_data(
-        cls,
-        data: Union[List, Tuple, pd.DataFrame, utils.SparseMatrixInputType],
-        schema: CollectionSchema,
-    ) -> List:
-        if schema.auto_id:
-            raise UpsertAutoIDTrueException(message=ExceptionsMessage.UpsertAutoIDTrue)
-
-        return cls.prepare_insert_data(data, schema)

@@ -34,7 +34,6 @@ from pymilvus.exceptions import (
     IndexNotExistException,
     PartitionAlreadyExistException,
     SchemaNotReadyException,
-    UpsertAutoIDTrueException,
 )
 from pymilvus.grpc_gen import schema_pb2
 from pymilvus.settings import Config
@@ -509,7 +508,7 @@ class Collection:
             )
 
         check_insert_schema(self.schema, data)
-        entities = Prepare.prepare_insert_data(data, self.schema)
+        entities = Prepare.prepare_data(data, self.schema)
         return conn.batch_insert(
             self._name,
             entities,
@@ -620,9 +619,6 @@ class Collection:
             10
         """
 
-        if self.schema.auto_id:
-            raise UpsertAutoIDTrueException(message=ExceptionsMessage.UpsertAutoIDTrue)
-
         if not is_valid_insert_data(data):
             raise DataTypeNotSupportException(
                 message="The type of data should be List, pd.DataFrame or Dict"
@@ -641,7 +637,7 @@ class Collection:
             return MutationResult(res)
 
         check_upsert_schema(self.schema, data)
-        entities = Prepare.prepare_upsert_data(data, self.schema)
+        entities = Prepare.prepare_data(data, self.schema, False)
         res = conn.upsert(
             self._name,
             entities,
@@ -1317,9 +1313,12 @@ class Collection:
         index_name = copy_kwargs.pop("index_name", Config.IndexName)
         conn = self._get_connection()
         tmp_index = conn.describe_index(self._name, index_name, **copy_kwargs)
+        print(index_name)
         if tmp_index is not None:
             field_name = tmp_index.pop("field_name", None)
             index_name = tmp_index.pop("index_name", index_name)
+            print("abc")
+            print(index_name)
             return Index(self, field_name, tmp_index, construct_only=True, index_name=index_name)
         raise IndexNotExistException(message=ExceptionsMessage.IndexNotExist)
 
