@@ -975,6 +975,9 @@ class Prepare:
         if anns_field:
             search_params["anns_field"] = anns_field
 
+        for key, value in search_params.items():
+            if key != "params":
+                params[key] = value
         req_params = [
             common_types.KeyValuePair(key=str(key), value=utils.dumps(value))
             for key, value in search_params.items()
