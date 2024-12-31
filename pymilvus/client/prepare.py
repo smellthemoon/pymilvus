@@ -1002,7 +1002,7 @@ class Prepare:
         # no more parameters will be written searchParams.params
         # to ensure compatibility and milvus can still get a json format parameter
         # try to write all the parameters under searchParams into searchParams.Params
-        for key, value in search_params.items():
+        for key, value in param.items():
             if key in params:
                 if params[key] != value:
                     raise ParamError(
